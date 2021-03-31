@@ -22,7 +22,8 @@ import collections
 import gym
 from gym import spaces
 import numpy as np
-import environment
+from recsim_env import environment
+from recsim_env.recsim_models import LTSUserModel, LTSDocumentSampler, clicked_engagement_reward
 
 
 def _dummy_metrics_aggregator(responses, metrics, info):
@@ -50,8 +51,11 @@ class RecSimGymEnv(gym.Env):
   """
 
   def __init__(self,
-               raw_environment,
-               reward_aggregator,
+               raw_environment=None,
+               reward_aggregator=None,
+               slate_size=3,
+               num_candidates=10,
+               max_steps=1000,
                metrics_aggregator=_dummy_metrics_aggregator,
                metrics_writer=_dummy_metrics_writer):
     """Initializes a RecSim environment conforming to gym.Env.
@@ -63,8 +67,21 @@ class RecSimGymEnv(gym.Env):
         responses and response_names.
       metrics_writer:  A function writing final metrics to TensorBoard.
     """
-    self._environment = raw_environment
-    self._reward_aggregator = reward_aggregator
+    if raw_environment is None:
+        self._environment = environment.Environment(LTSUserModel(slate_size),
+                                                    LTSDocumentSampler(),
+                                                    num_candidates,
+                                                    slate_size,
+                                                    resample_documents=True)
+    else:
+        self._environment = raw_environment
+
+    if reward_aggregator is None:
+        self._reward_aggregator = clicked_engagement_reward
+    else:
+        self._reward_aggregator = reward_aggregator
+
+    self._max_episode_steps = max_steps
     self._metrics_aggregator = metrics_aggregator
     self._metrics_writer = metrics_writer
     self.reset_metrics()

@@ -1,11 +1,10 @@
 import numpy as np
 from recsim import document
+from recsim_env import recsim_gym, environment
 from recsim import user
 from recsim.choice_model import MultinomialLogitChoiceModel
 # from recsim.simulator import environment
-import environment
 # from recsim.simulator import recsim_gym
-import recsim_gym
 from gym import spaces
 
 

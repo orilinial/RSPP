@@ -2,8 +2,7 @@ import numpy as np
 from recsim import document
 from recsim import user
 from recsim.choice_model import MultinomialLogitChoiceModel
-from recsim.simulator import environment
-from recsim.simulator import recsim_gym
+from gym import spaces
 
 
 #  Document model
@@ -202,16 +201,3 @@ def clicked_engagement_reward(responses):
         if response.clicked:
             reward += response.engagement
     return reward
-
-
-def create_env():
-    slate_size = 3
-    num_candidates = 10
-    ltsenv = environment.Environment(
-        LTSUserModel(slate_size),
-        LTSDocumentSampler(),
-        num_candidates,
-        slate_size,
-        resample_documents=True)
-
-    lts_gym_env = recsim_gym.RecSimGymEnv(ltsenv, clicked_engagement_reward)
