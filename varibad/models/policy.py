@@ -120,6 +120,9 @@ class Policy(nn.Module):
             self.dist = DiagGaussian(hidden_layers[-1], num_outputs, init_std, min_std=1e-6,
                                      action_low=action_low, action_high=action_high,
                                      norm_actions_of_policy=norm_actions_of_policy)
+        elif action_space.__class__.__name__ == "MultiDiscrete":
+            num_outputs = action_space.nvec[0]
+            self.dist = Multinomial(hidden_layers[-1], num_outputs, action_space.shape[0])
         else:
             raise NotImplementedError
 
@@ -257,6 +260,27 @@ FixedNormal.entropy = lambda self: entropy(self).sum(-1)
 
 FixedNormal.mode = lambda self: self.mean
 
+class FixedMultinomial(torch.distributions.Multinomial):
+    def log_prob(self, actions):
+        return super(FixedMultinomial, self).log_prob(actions.squeeze(-1)).unsqueeze(-1)
+
+    def mode(self):
+        return self.probs.argmax(dim=-1, keepdim=True)
+
+    def sample(self, sample_shape=torch.Size()):
+        if not isinstance(sample_shape, torch.Size):
+            sample_shape = torch.Size(sample_shape)
+        probs_2d = self.probs.reshape(-1, self.probs.shape[-1])
+        samples_2d = torch.multinomial(probs_2d, sample_shape.numel(), False).T
+        samples = samples_2d.reshape(self._extended_shape(sample_shape))
+
+        shifted_idx = list(range(samples.dim()))
+        shifted_idx.append(shifted_idx.pop(0))
+        samples = samples.permute(*shifted_idx)
+        counts = samples.new(self._extended_shape(sample_shape)).zero_()
+        counts.scatter_add_(-1, samples, torch.ones_like(samples))
+        return counts.type_as(self.probs).unsqueeze(-1)
+
 
 def init(module, weight_init, bias_init, gain=1.0):
     weight_init(module.weight.data, gain=gain)
@@ -268,6 +292,23 @@ def init(module, weight_init, bias_init, gain=1.0):
 def init_normc_(weight, gain=1):
     weight.normal_(0, 1)
     weight *= gain / torch.sqrt(weight.pow(2).sum(1, keepdim=True))
+
+
+class Multinomial(nn.Module):
+    def __init__(self, num_inputs, num_outputs, num_samples):
+        super(Multinomial, self).__init__()
+
+        init_ = lambda m: init(m,
+                               nn.init.orthogonal_,
+                               lambda x: nn.init.constant_(x, 0),
+                               gain=0.01)
+
+        self.num_samples = num_samples
+        self.linear = init_(nn.Linear(num_inputs, num_outputs))
+
+    def forward(self, x):
+        x = self.linear(x)
+        return FixedMultinomial(self.num_samples, logits=x)
 
 
 class Categorical(nn.Module):

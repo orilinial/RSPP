@@ -69,7 +69,10 @@ class VecPyTorch(VecEnvWrapper):
     def reset(self, index=None, task=None):
         if task is not None:
             assert isinstance(task, list)
-        state = self.venv.reset(index=index, task=task)
+        if index is not None:
+            state = self.venv.reset(index=index, task=task)
+        else:
+            state = self.venv.reset()
         if isinstance(state, list):
             state = [torch.from_numpy(s).float().to(self.device) for s in state]
         else:

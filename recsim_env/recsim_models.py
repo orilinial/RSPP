@@ -110,10 +110,10 @@ class StaticUserSampler(user.AbstractUserSampler):
                                   'transition_coeff': transition_coeff}
         super(StaticUserSampler, self).__init__(user_ctor, **kwargs)
 
-    def sample_user(self):
+    def sample_user(self, utype=None):
         starting_preferences = sample_from_simplex(3)
         self._state_parameters['preferences'] = starting_preferences
-        self._state_parameters['user_type'] = np.random.randint(1, 3)
+        self._state_parameters['user_type'] = utype if utype is not None else np.random.randint(1, 3)
         return self._user_ctor(**self._state_parameters)
 
 
