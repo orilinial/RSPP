@@ -5,145 +5,144 @@ from recsim.choice_model import MultinomialLogitChoiceModel
 from gym import spaces
 
 
+def sample_from_simplex(dim):
+    samples = np.array([0.0] * (dim + 1))
+    samples[-1] = 1.0
+    samples[1:-1] = np.random.random(dim - 1)
+    samples.sort()
+    simplex_samples = samples[1:] - samples[:-1]
+    return simplex_samples
+
+
 #  Document model
-class LTSDocument(document.AbstractDocument):
-    def __init__(self, doc_id, kaleness):
-        self.kaleness = kaleness
-        super(LTSDocument, self).__init__(doc_id)    # doc_id is an integer representing the unique ID of this document
+class Document(document.AbstractDocument):
+    def __init__(self, doc_id, genre):
+        self.genre = genre
+        super(Document, self).__init__(doc_id)  # doc_id is an integer representing the unique ID of this document
 
     def create_observation(self):
-        return np.array([self.kaleness])
+        return self.genre
 
     @staticmethod
     def observation_space():
-        return spaces.Box(shape=(1,), dtype=np.float32, low=0.0, high=1.0)
+        return spaces.Box(shape=(3,), dtype=np.float32, low=0.0, high=1.0)
 
     def __str__(self):
-        return "Document {} with kaleness {}.".format(self._doc_id, self.kaleness)
+        return "Document {} with genre {}.".format(self._doc_id, self.genre)
 
 
-class LTSDocumentSampler(document.AbstractDocumentSampler):
-    def __init__(self, doc_ctor=LTSDocument, **kwargs):
-        super(LTSDocumentSampler, self).__init__(doc_ctor, **kwargs)
+class DocumentSampler(document.AbstractDocumentSampler):
+    def __init__(self, doc_ctor=Document, **kwargs):
+        super(DocumentSampler, self).__init__(doc_ctor, **kwargs)
         self._doc_count = 0
+        self.genre_dim = 3
 
     def sample_document(self):
         doc_features = {'doc_id': self._doc_count,
-                        'kaleness': self._rng.random_sample()}
+                        'genre': sample_from_simplex(self.genre_dim)}
         self._doc_count += 1
         return self._doc_ctor(**doc_features)
 
 
 # User model
-class LTSUserState(user.AbstractUserState):
-    def __init__(self, memory_discount, sensitivity, innovation_stddev,
-                 choc_mean, choc_stddev, kale_mean, kale_stddev,
-                 net_kaleness_exposure, time_budget, observation_noise_stddev=0.1
-                 ):
+class UserState(user.AbstractUserState):
+    def __init__(self, preferences, min_eng, max_eng, eng_scale, transition_threshold, transition_coeff, user_type,
+                 time_budget, observation_noise_stddev=0.1):
         ## Transition model parameters
         ##############################
-        self.memory_discount = memory_discount
-        self.sensitivity = sensitivity
-        self.innovation_stddev = innovation_stddev
+        self.transition_threshold = transition_threshold
+        self.transition_coeff = transition_coeff
+        self.user_type = user_type
 
         ## Engagement parameters
-        self.choc_mean = choc_mean
-        self.choc_stddev = choc_stddev
-        self.kale_mean = kale_mean
-        self.kale_stddev = kale_stddev
+        ##############################
+        self.min_eng = min_eng
+        self.max_eng = max_eng
+        self.eng_scale = eng_scale
 
         ## State variables
         ##############################
-        self.net_kaleness_exposure = net_kaleness_exposure
-        self.satisfaction = 1 / (1 + np.exp(-sensitivity * net_kaleness_exposure))
+        self.preferences = preferences
         self.time_budget = time_budget
 
         # Noise
         self._observation_noise = observation_noise_stddev
 
     def create_observation(self):
-        """User's state is not observable."""
-        clip_low, clip_high = (-1.0 / (1.0 * self._observation_noise),
-                               1.0 / (1.0 * self._observation_noise))
-        noise = stats.truncnorm(
-          clip_low, clip_high, loc=0.0, scale=self._observation_noise).rvs()
-        noisy_sat = self.satisfaction + noise
-        return np.array([noisy_sat, ])
+        # Option 1: preferences are observable
+        return self.preferences
+
+        # Option 2: return only the most preferred genre
+        # prefs = np.zeros(3)
+        # prefs[np.argmax(self.preferences)] = 1.0
+        # return prefs
+
+        # Option 3: add some noise, this is not a simplex anymore
+        # noise = np.random.random(self.preferences.shape[0]) * self._observation_noise
+        # return self.preferences + noise
 
     @staticmethod
     def observation_space():
-        return spaces.Box(shape=(1,), dtype=np.float32, low=-2.0, high=2.0)
+        return spaces.Box(shape=(3,), dtype=np.float32, low=0.0, high=1.0)
 
-    # scoring function for use in the choice model -- the user is more likely to
-    # click on more chocolatey content.
+    # scoring function for use in the choice model
     def score_document(self, doc_obs):
-        return 1 - doc_obs
+        return (doc_obs * self.preferences).sum()
 
 
-class LTSStaticUserSampler(user.AbstractUserSampler):
+class StaticUserSampler(user.AbstractUserSampler):
     _state_parameters = None
 
     def __init__(self,
-                 user_ctor=LTSUserState,
-                 memory_discount=0.9,
-                 sensitivity=0.01,
-                 innovation_stddev=0.05,
-                 choc_mean=5.0,
-                 choc_stddev=1.0,
-                 kale_mean=4.0,
-                 kale_stddev=1.0,
+                 user_ctor=UserState,
+                 min_eng=1.0,
+                 max_eng=2.0,
+                 eng_scale=0.1,
+                 transition_threshold=0.5,
+                 transition_coeff=0.9,
                  time_budget=60,
                  **kwargs):
-        self._state_parameters = {'memory_discount': memory_discount,
-                                  'sensitivity': sensitivity,
-                                  'innovation_stddev': innovation_stddev,
-                                  'choc_mean': choc_mean,
-                                  'choc_stddev': choc_stddev,
-                                  'kale_mean': kale_mean,
-                                  'kale_stddev': kale_stddev,
-                                  'time_budget': time_budget
-                                 }
-        super(LTSStaticUserSampler, self).__init__(user_ctor, **kwargs)
+        self._state_parameters = {'time_budget': time_budget,
+                                  'min_eng': min_eng,
+                                  'max_eng': max_eng,
+                                  'eng_scale': eng_scale,
+                                  'transition_threshold': transition_threshold,
+                                  'transition_coeff': transition_coeff}
+        super(StaticUserSampler, self).__init__(user_ctor, **kwargs)
 
     def sample_user(self):
-        starting_nke = ((self._rng.random_sample() - .5) *
-                        (1 / (1.0 - self._state_parameters['memory_discount'])))
-        self._state_parameters['net_kaleness_exposure'] = starting_nke
+        starting_preferences = sample_from_simplex(3)
+        self._state_parameters['preferences'] = starting_preferences
+        self._state_parameters['user_type'] = np.random.randint(1, 3)
         return self._user_ctor(**self._state_parameters)
 
 
 # Response model
-class LTSResponse(user.AbstractResponse):
-  # The maximum degree of engagement.
-  MAX_ENGAGEMENT_MAGNITUDE = 100.0
+class Response(user.AbstractResponse):
+    # The maximum degree of engagement.
+    MAX_ENGAGEMENT_MAGNITUDE = 100.0
 
-  def __init__(self, clicked=False, engagement=0.0):
-    self.clicked = clicked
-    self.engagement = engagement
+    def __init__(self, engagement=0.0):
+        self.engagement = engagement
 
-  def create_observation(self):
-    return {'click': int(self.clicked), 'engagement': np.array(self.engagement)}
+    def create_observation(self):
+        return np.array(self.engagement)
 
-  @classmethod
-  def response_space(cls):
-    # `engagement` feature range is [0, MAX_ENGAGEMENT_MAGNITUDE]
-    return spaces.Dict({
-        'click':
-            spaces.Discrete(2),
-        'engagement':
-            spaces.Box(
-                low=0.0,
-                high=cls.MAX_ENGAGEMENT_MAGNITUDE,
-                shape=tuple(),
-                dtype=np.float32)
-    })
+    @classmethod
+    def response_space(cls):
+        # `engagement` feature range is [0, MAX_ENGAGEMENT_MAGNITUDE]
+        return spaces.Box(
+                    low=0.0,
+                    high=cls.MAX_ENGAGEMENT_MAGNITUDE,
+                    shape=(1,),
+                    dtype=np.float32)
 
 
 #####
 # User model
-class LTSUserModel(user.AbstractUserModel):
+class UserModel(user.AbstractUserModel):
     def __init__(self, slate_size, seed=0):
-        super(LTSUserModel, self).__init__(LTSResponse, LTSStaticUserSampler(LTSUserState, seed=seed), slate_size)
+        super(UserModel, self).__init__(Response, StaticUserSampler(UserState, seed=seed), slate_size)
         self.choice_model = MultinomialLogitChoiceModel({})
 
     def simulate_response(self, slate_documents):
@@ -151,41 +150,39 @@ class LTSUserModel(user.AbstractUserModel):
         responses = [self._response_model_ctor() for _ in slate_documents]
         # Get click from of choice model.
         self.choice_model.score_documents(
-          self._user_state, [doc.create_observation() for doc in slate_documents])
+            self._user_state, [doc.create_observation() for doc in slate_documents])
         scores = self.choice_model.scores
         selected_index = self.choice_model.choose_item()
         # Populate clicked item.
         self.generate_response(slate_documents[selected_index],
-                                responses[selected_index])
+                               responses[selected_index],
+                               scores[selected_index])
         return responses
 
-    def generate_response(self, doc, response):
-        response.clicked = True
+    def generate_response(self, doc, response, score):
         # linear interpolation between choc and kale.
-        engagement_loc = (doc.kaleness * self._user_state.choc_mean
-                          + (1 - doc.kaleness) * self._user_state.kale_mean)
-        engagement_loc *= self._user_state.satisfaction
-        engagement_scale = (doc.kaleness * self._user_state.choc_stddev
-                            + ((1 - doc.kaleness)
-                                * self._user_state.kale_stddev))
+        engagement_loc = (score * self._user_state.max_eng
+                          + (1 - score) * self._user_state.min_eng)
+        engagement_scale = self._user_state.eng_scale
         log_engagement = np.random.normal(loc=engagement_loc,
                                           scale=engagement_scale)
         response.engagement = np.exp(log_engagement)
 
     def update_state(self, slate_documents, responses):
         for doc, response in zip(slate_documents, responses):
-            if response.clicked:
-                innovation = np.random.normal(scale=self._user_state.innovation_stddev)
-                net_kaleness_exposure = (self._user_state.memory_discount
-                                          * self._user_state.net_kaleness_exposure
-                                          - 2.0 * (doc.kaleness - 0.5)
-                                          + innovation
-                                        )
-                self._user_state.net_kaleness_exposure = net_kaleness_exposure
-                satisfaction = 1 / (1.0 + np.exp(-self._user_state.sensitivity
-                                                  * net_kaleness_exposure)
-                                    )
-                self._user_state.satisfaction = satisfaction
+            if response.engagement > 0.0:
+                score = (self._user_state.preferences * doc.genre).sum()
+
+                alpha = self._user_state.transition_coeff
+
+                if self._user_state.user_type == 1:
+                    if score < self._user_state.transition_threshold:
+                        self._user_state.preferences = alpha * self._user_state.preferences + (1 - alpha) * doc.genre
+
+                else:
+                    if score > self._user_state.transition_threshold:
+                        self._user_state.preferences = alpha * self._user_state.preferences + (1 - alpha) * doc.genre
+
                 self._user_state.time_budget -= 1
                 return
 
@@ -198,6 +195,5 @@ class LTSUserModel(user.AbstractUserModel):
 def clicked_engagement_reward(responses):
     reward = 0.0
     for response in responses:
-        if response.clicked:
-            reward += response.engagement
+        reward += response.engagement
     return reward

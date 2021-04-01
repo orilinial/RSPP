@@ -23,20 +23,20 @@ import gym
 from gym import spaces
 import numpy as np
 from recsim_env import environment
-from recsim_env.recsim_models import LTSUserModel, LTSDocumentSampler, clicked_engagement_reward
+from recsim_env.recsim_models import UserModel, DocumentSampler, clicked_engagement_reward
 
 
 def _dummy_metrics_aggregator(responses, metrics, info):
-  del responses  # Unused.
-  del metrics  # Unused.
-  del info  # Unused.
-  return
+    del responses  # Unused.
+    del metrics  # Unused.
+    del info  # Unused.
+    return
 
 
 def _dummy_metrics_writer(metrics, add_summary_fn):
-  del metrics  # Unused.
-  del add_summary_fn  # Unused.
-  return
+    del metrics  # Unused.
+    del add_summary_fn  # Unused.
+    return
 
 
 class RecSimGymEnv(gym.Env):
@@ -68,8 +68,8 @@ class RecSimGymEnv(gym.Env):
       metrics_writer:  A function writing final metrics to TensorBoard.
     """
     if raw_environment is None:
-        self._environment = environment.Environment(LTSUserModel(slate_size),
-                                                    LTSDocumentSampler(),
+        self._environment = environment.Environment(UserModel(slate_size),
+                                                    DocumentSampler(),
                                                     num_candidates,
                                                     slate_size,
                                                     resample_documents=True)
@@ -130,11 +130,18 @@ class RecSimGymEnv(gym.Env):
       user_obs_space = self._environment.user_model.observation_space()
       resp_obs_space = self._environment.user_model.response_space()
 
-    return spaces.Dict({
+    doc_space = self._environment.candidate_set.observation_space()
+    subspace = next(iter(doc_space.spaces.values()))
+
+    full_space = spaces.Dict({
         'user': user_obs_space,
-        'doc': self._environment.candidate_set.observation_space(),
-        'response': resp_obs_space,
+        'doc': spaces.Box(shape=(len(doc_space.spaces),) + subspace.shape, dtype=subspace.dtype,
+                          low=subspace.low[0], high=subspace.high[0]),
+        'response': spaces.Box(shape=(len(resp_obs_space),) + resp_obs_space[0].shape, dtype=resp_obs_space[0].dtype,
+                               low = resp_obs_space[0].low[0], high=resp_obs_space[0].high[0])
     })
+
+    return full_space['doc']
 
   def step(self, action):
     """Runs one timestep of the environment's dynamics.
