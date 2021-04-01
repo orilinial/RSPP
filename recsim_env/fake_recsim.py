@@ -41,12 +41,45 @@ class FakeRecSim(gym.Env):
         self.reset_task()
         self.reset()
 
+    def generate_engagement(self, score):
+        # TODO: fix this
+        engagement_loc = (score * self.max_eng
+                          + (1 - score) * self.min_eng)
+        engagement_scale = self.eng_scale
+        log_engagement = np.random.normal(loc=engagement_loc, scale=engagement_scale)
+        # return np.exp(log_engagement) # TODO: why exp???
+        return np.exp(log_engagement)
+
     def step(self, action):
         """
         Execute one step in the environment.
         Should return: state, reward, done, info
         where info has to include a field 'task'.
         """
+        slate = self.docs[action]
+        scores = np.array([(doc * self.user_prefs).sum() for doc in slate])
+        item_idx_chosen = np.random.choice(slate.shape[0], (scores / scores.sum()))
+
+        # Response
+        engagement = self.generate_engagement(scores[item_idx_chosen])
+
+        # Transition
+        if self.utype == 1:
+            if scores[item_idx_chosen] < self.transition_threshold:
+                self.user_prefs = self.transition_coeff * self.user_prefs + (
+                        1 - self.transition_coeff) * slate[item_idx_chosen]
+
+        else:
+            if scores[item_idx_chosen] > self.transition_threshold:
+                self.user_prefs = self.transition_coeff * self.user_prefs + (
+                        1 - self.transition_coeff) * slate[item_idx_chosen]
+
+        self.time_budget -= 1
+
+        done = True if self.time_budget <= 0 else False
+        obs = self.docs  # TODO: is this correct?
+        reward = engagement
+        info = {'task': self.utype}
 
         return obs, reward, done, info
 
