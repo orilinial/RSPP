@@ -15,7 +15,7 @@ class FakeRecSim(gym.Env):
     def __init__(self, num_candidates=10, slate_size=3, num_user_type=2, doc_dim=3):
         super(FakeRecSim, self).__init__()
 
-        self.docs = []
+        self.docs = None
         self.num_docs = num_candidates
         self.slate_size = slate_size
         self.num_utypes = num_user_type
@@ -38,6 +38,8 @@ class FakeRecSim(gym.Env):
         self.user_prefs = None
         self.time_budget = 60
 
+        self._max_episode_steps = 60
+
         self.reset_task()
         self.reset()
 
@@ -56,9 +58,9 @@ class FakeRecSim(gym.Env):
         Should return: state, reward, done, info
         where info has to include a field 'task'.
         """
-        slate = self.docs[action]
+        slate = self.docs[action.nonzero()]
         scores = np.array([(doc * self.user_prefs).sum() for doc in slate])
-        item_idx_chosen = np.random.choice(slate.shape[0], (scores / scores.sum()))
+        item_idx_chosen = np.random.choice(slate.shape[0], p=(scores / scores.sum()))
 
         # Response
         engagement = self.generate_engagement(scores[item_idx_chosen])
@@ -76,8 +78,8 @@ class FakeRecSim(gym.Env):
 
         self.time_budget -= 1
 
-        done = True if self.time_budget <= 0 else False
-        obs = self.docs  # TODO: is this correct?
+        done = self.time_budget <= 0
+        obs = self.docs.reshape(-1)  # TODO: is this correct?
         reward = engagement
         info = {'task': self.utype}
 
@@ -85,7 +87,7 @@ class FakeRecSim(gym.Env):
 
     @property
     def observation_space(self):
-        return gym.spaces.Box(shape=(self.num_docs, self.doc_dim), dtype=np.float32, low=0.0, high=1.0)
+        return gym.spaces.Box(shape=(self.num_docs * self.doc_dim,), dtype=np.float32, low=0.0, high=1.0)
 
     @property
     def action_space(self):
@@ -96,9 +98,10 @@ class FakeRecSim(gym.Env):
         Reset the environment. This should *NOT* automatically reset the task!
         Resetting the task is handled in the varibad wrapper (see wrappers.py).
         """
+        self.time_budget = self._max_episode_steps
         self.user_prefs = sample_from_simplex(self.doc_dim)
         self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
-        return self.docs
+        return self.docs.reshape(-1)
 
     def get_task(self):
         """

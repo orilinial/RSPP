@@ -135,6 +135,8 @@ class RNNEncoder(nn.Module):
         ha = self.action_encoder(actions)
         hs = self.state_encoder(states)
         hr = self.reward_encoder(rewards)
+        if len(ha.shape) < len(hs.shape):
+            ha = ha.unsqueeze(0)
         h = torch.cat((ha, hs, hr), dim=2)
 
         # forward through fully connected layers before GRU

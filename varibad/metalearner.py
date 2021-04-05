@@ -55,6 +55,8 @@ class MetaLearner:
         self.args.action_space = self.envs.action_space
         if isinstance(self.envs.action_space, gym.spaces.discrete.Discrete):
             self.args.action_dim = 1
+        elif isinstance(self.envs.action_space, gym.spaces.multi_discrete.MultiDiscrete):
+            self.args.action_dim = self.envs.action_space.nvec[0]
         else:
             self.args.action_dim = self.envs.action_space.shape[0]
 

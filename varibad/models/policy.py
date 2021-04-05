@@ -261,15 +261,19 @@ FixedNormal.entropy = lambda self: entropy(self).sum(-1)
 FixedNormal.mode = lambda self: self.mean
 
 class FixedMultinomial(torch.distributions.Multinomial):
-    def log_prob(self, actions):
+    def log_probs(self, actions):
         return super(FixedMultinomial, self).log_prob(actions.squeeze(-1)).unsqueeze(-1)
 
     def mode(self):
-        return self.probs.argmax(dim=-1, keepdim=True)
+        indices = self.probs.topk(self.total_count, dim=-1, sorted=False)[-1].long()
+        ind_vec = torch.zeros_like(self.logits).squeeze(0)
+        ind_vec[indices] += 1.0
+        return ind_vec
 
     def sample(self, sample_shape=torch.Size()):
         if not isinstance(sample_shape, torch.Size):
             sample_shape = torch.Size(sample_shape)
+        sample_shape = torch.Size((self.total_count,)) + sample_shape
         probs_2d = self.probs.reshape(-1, self.probs.shape[-1])
         samples_2d = torch.multinomial(probs_2d, sample_shape.numel(), False).T
         samples = samples_2d.reshape(self._extended_shape(sample_shape))
