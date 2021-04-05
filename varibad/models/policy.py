@@ -276,14 +276,18 @@ class FixedMultinomial(torch.distributions.Multinomial):
         sample_shape = torch.Size((self.total_count,)) + sample_shape
         probs_2d = self.probs.reshape(-1, self.probs.shape[-1])
         samples_2d = torch.multinomial(probs_2d, sample_shape.numel(), False).T
-        samples = samples_2d.reshape(self._extended_shape(sample_shape))
+        sample_vec = torch.zeros_like(self.logits).squeeze(0)
+        sample_vec[samples_2d.squeeze()] += 1.0
 
-        shifted_idx = list(range(samples.dim()))
-        shifted_idx.append(shifted_idx.pop(0))
-        samples = samples.permute(*shifted_idx)
-        counts = samples.new(self._extended_shape(sample_shape)).zero_()
-        counts.scatter_add_(-1, samples, torch.ones_like(samples))
-        return counts.type_as(self.probs).unsqueeze(-1)
+        return sample_vec
+        # samples = sample_vec.reshape(self._extended_shape(sample_shape))
+        #
+        # shifted_idx = list(range(samples.dim()))
+        # shifted_idx.append(shifted_idx.pop(0))
+        # samples = samples.permute(*shifted_idx)
+        # counts = samples.new(self._extended_shape(sample_shape)).zero_()
+        # counts.scatter_add_(-1, samples, torch.ones_like(samples))
+        # return counts.type_as(self.probs).unsqueeze(-1)
 
 
 def init(module, weight_init, bias_init, gain=1.0):

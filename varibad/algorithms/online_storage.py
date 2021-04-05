@@ -63,6 +63,8 @@ class OnlineStorage(object):
         # actions
         if action_space.__class__.__name__ == 'Discrete':
             action_shape = 1
+        elif action_space.__class__.__name__ == 'MultiDiscrete':
+            action_shape = action_space.nvec[0]
         else:
             action_shape = action_space.shape[0]
         self.actions = torch.zeros(num_steps, num_processes, action_shape)
