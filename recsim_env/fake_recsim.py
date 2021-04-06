@@ -15,6 +15,8 @@ class FakeRecSim(gym.Env):
     def __init__(self, num_candidates=10, slate_size=3, num_user_type=2, doc_dim=3):
         super(FakeRecSim, self).__init__()
 
+        self.env_type = 'Box'       # 'Categorical' or 'Box'
+
         self.docs = None
         self.num_docs = num_candidates
         self.slate_size = slate_size
@@ -58,7 +60,14 @@ class FakeRecSim(gym.Env):
         Should return: state, reward, done, info
         where info has to include a field 'task'.
         """
-        slate = self.docs[action.nonzero()]
+        if self.env_type == 'Categorical':
+            slate = self.docs[action.nonzero()]
+        elif self.env_type == 'Box':
+            probs = np.exp(action) / np.exp(action).sum()
+            slate_idx = np.random.choice(self.docs.shape[0], size=self.slate_size, replace=False,
+                                         p=probs)
+            slate = self.docs[slate_idx]
+
         scores = np.array([(doc * self.user_prefs).sum() for doc in slate])
         item_idx_chosen = np.random.choice(slate.shape[0], p=(scores / scores.sum()))
 
@@ -91,7 +100,10 @@ class FakeRecSim(gym.Env):
 
     @property
     def action_space(self):
-        return gym.spaces.MultiDiscrete(self.num_docs * np.ones((self.slate_size,)))
+        if self.env_type == 'Categorical':
+            return gym.spaces.MultiDiscrete(self.num_docs * np.ones((self.slate_size,)))
+        elif self.env_type == 'Box':
+            return gym.spaces.Box(shape=(self.num_docs,), low=0.0, high=1.0)
 
     def reset(self):
         """
