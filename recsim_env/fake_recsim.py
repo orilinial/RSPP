@@ -16,12 +16,13 @@ class FakeRecSim(gym.Env):
         super(FakeRecSim, self).__init__()
 
         self.env_type = 'Box'       # 'Categorical' or 'Box'
+        self.oracle = False
 
-        self.docs = None
         self.num_docs = num_candidates
         self.slate_size = slate_size
         self.num_utypes = num_user_type
         self.doc_dim = doc_dim
+        self.docs = None
 
         ## Transition model parameters
         ##############################
@@ -32,7 +33,7 @@ class FakeRecSim(gym.Env):
         ## Engagement parameters
         ##############################
         self.min_eng = 1.0
-        self.max_eng = 2.0
+        self.max_eng = 5.0
         self.eng_scale = 0.1
 
         ## State variables
@@ -46,13 +47,12 @@ class FakeRecSim(gym.Env):
         self.reset()
 
     def generate_engagement(self, score):
-        # TODO: fix this
         engagement_loc = (score * self.max_eng
                           + (1 - score) * self.min_eng)
-        engagement_scale = self.eng_scale
-        log_engagement = np.random.normal(loc=engagement_loc, scale=engagement_scale)
-        # return np.exp(log_engagement) # TODO: why exp???
-        return np.exp(log_engagement)
+        # engagement_scale = self.eng_scale
+        # log_engagement = np.random.normal(loc=engagement_loc, scale=engagement_scale)
+        # return np.exp(log_engagement)
+        return engagement_loc
 
     def step(self, action):
         """
@@ -69,41 +69,55 @@ class FakeRecSim(gym.Env):
             slate = self.docs[slate_idx]
 
         scores = np.array([(doc * self.user_prefs).sum() for doc in slate])
-        item_idx_chosen = np.random.choice(slate.shape[0], p=(scores / scores.sum()))
+        user_idx_choice = np.random.choice(slate.shape[0], p=(scores / scores.sum()))
 
         # Response
-        engagement = self.generate_engagement(scores[item_idx_chosen])
+        engagement = self.generate_engagement(scores[user_idx_choice])
 
         # Transition
-        if self.utype == 1:
-            if scores[item_idx_chosen] < self.transition_threshold:
-                self.user_prefs = self.transition_coeff * self.user_prefs + (
-                        1 - self.transition_coeff) * slate[item_idx_chosen]
-
-        else:
-            if scores[item_idx_chosen] > self.transition_threshold:
-                self.user_prefs = self.transition_coeff * self.user_prefs + (
-                        1 - self.transition_coeff) * slate[item_idx_chosen]
+        # if self.utype == 1:
+        #     if scores[item_idx_chosen] < self.transition_threshold:
+        #         self.user_prefs = self.transition_coeff * self.user_prefs + (
+        #                 1 - self.transition_coeff) * slate[item_idx_chosen]
+        #         self.user_prefs /= self.user_prefs.sum()
+        #
+        # else:
+        #     if scores[item_idx_chosen] > self.transition_threshold:
+        #         self.user_prefs = self.transition_coeff * self.user_prefs + (
+        #                 1 - self.transition_coeff) * slate[item_idx_chosen]
+        #         self.user_prefs /= self.user_prefs.sum()
 
         self.time_budget -= 1
 
         done = self.time_budget <= 0
-        obs = self.docs.reshape(-1)  # TODO: is this correct?
+
+        # Make observation
+        slate_idx_one_hot = np.zeros(self.docs.shape[0])
+        slate_idx_one_hot[slate_idx] = 1.0
+
+        user_choice_one_hot = np.zeros(self.docs.shape[0])
+        user_choice_one_hot[user_idx_choice] = 1.0
+
+        obs = np.concatenate((self.docs.reshape(-1), slate_idx_one_hot, user_choice_one_hot))
         reward = engagement
         info = {'task': self.utype}
+
+        if self.oracle:
+            scores = np.array([(doc * self.user_prefs).sum() for doc in self.docs])
+            reward = self.generate_engagement(np.min(scores))
 
         return obs, reward, done, info
 
     @property
     def observation_space(self):
-        return gym.spaces.Box(shape=(self.num_docs * self.doc_dim,), dtype=np.float32, low=0.0, high=1.0)
+        return gym.spaces.Box(shape=(self.num_docs * (self.doc_dim + 2),), dtype=np.float32, low=0.0, high=1.0)
 
     @property
     def action_space(self):
         if self.env_type == 'Categorical':
             return gym.spaces.MultiDiscrete(self.num_docs * np.ones((self.slate_size,)))
         elif self.env_type == 'Box':
-            return gym.spaces.Box(shape=(self.num_docs,), low=0.0, high=1.0)
+            return gym.spaces.Box(shape=(self.num_docs,), low=-1.0, high=1.0)
 
     def reset(self):
         """
@@ -111,9 +125,18 @@ class FakeRecSim(gym.Env):
         Resetting the task is handled in the varibad wrapper (see wrappers.py).
         """
         self.time_budget = self._max_episode_steps
-        self.user_prefs = sample_from_simplex(self.doc_dim)
-        self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
-        return self.docs.reshape(-1)
+        # self.user_prefs = sample_from_simplex(self.doc_dim)
+        if self.utype == 1:
+            self.user_prefs = np.array([0.15, 0.15, 0.7])
+        elif self.utype:
+            self.user_prefs = np.array([0.7, 0.15, 0.15])
+
+        # self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
+        self.single_docs = np.array(
+            [[0., 0., 1.], [0., 1., 0.], [1., 0., 0.], [0., 0.5, 0.5], [0.5, 0.5, 0.], [0.5, 0.0, 0.5],
+             [0.333, 0.333, 0.333], [0.2, 0.4, 0.4], [0.4, 0.2, 0.4], [0.4, 0.4, 0.2]])
+        self.docs = self.single_docs
+        return np.concatenate((self.docs.reshape(-1), np.zeros(self.docs.shape[0]), np.zeros(self.docs.shape[0])))
 
     def get_task(self):
         """
