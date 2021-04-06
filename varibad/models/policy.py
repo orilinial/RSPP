@@ -289,6 +289,8 @@ class FixedMultinomial(torch.distributions.Multinomial):
         # counts.scatter_add_(-1, samples, torch.ones_like(samples))
         # return counts.type_as(self.probs).unsqueeze(-1)
 
+    def entropy(self):
+        return torch.zeros((1,))
 
 def init(module, weight_init, bias_init, gain=1.0):
     weight_init(module.weight.data, gain=gain)
