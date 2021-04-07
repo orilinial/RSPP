@@ -371,12 +371,20 @@ class MetaLearner:
         if self.iter_idx % self.args.eval_interval == 0:
 
             ret_rms = self.envs.venv.ret_rms if self.args.norm_rew_for_policy else None
-            returns_per_episode = utl_eval.evaluate(args=self.args,
-                                                    policy=self.policy,
-                                                    ret_rms=ret_rms,
-                                                    encoder=self.vae.encoder,
-                                                    iter_idx=self.iter_idx
-                                                    )
+
+            # Changes
+            # returns_per_episode = utl_eval.evaluate(args=self.args,
+            #                                                       policy=self.policy,
+            #                                                       ret_rms=ret_rms,
+            #                                                       encoder=self.vae.encoder,
+            #                                                       iter_idx=self.iter_idx
+            #                                                       )
+            returns_per_episode, states, task = utl_eval.evaluate(args=self.args,
+                                                                  policy=self.policy,
+                                                                  ret_rms=ret_rms,
+                                                                  encoder=self.vae.encoder,
+                                                                  iter_idx=self.iter_idx
+                                                                  )
 
             # log the return avg/std across tasks (=processes)
             returns_avg = returns_per_episode.mean(dim=0)
@@ -386,6 +394,10 @@ class MetaLearner:
                 self.logger.add('return_avg_per_frame/episode_{}'.format(k + 1), returns_avg[k], self.frames)
                 self.logger.add('return_std_per_iter/episode_{}'.format(k + 1), returns_std[k], self.iter_idx)
                 self.logger.add('return_std_per_frame/episode_{}'.format(k + 1), returns_std[k], self.frames)
+
+                # Changes
+                for i in range(10):
+                    self.logger.add('slates_task_{}/episode_{}/doc_{}'.format(task, k+1, i), states[k, i], self.frames)
 
             print(f"Updates {self.iter_idx}, "
                   f"Frames {self.frames}, "

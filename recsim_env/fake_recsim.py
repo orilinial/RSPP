@@ -39,9 +39,8 @@ class FakeRecSim(gym.Env):
         ## State variables
         ##############################
         self.user_prefs = None
-        self.time_budget = 60
 
-        self._max_episode_steps = 60
+        self._max_episode_steps = 100
 
         self.reset_task()
         self.reset()

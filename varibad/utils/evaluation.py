@@ -52,6 +52,11 @@ def evaluate(args,
     else:
         latent_sample = latent_mean = latent_logvar = hidden_state = None
 
+    # changes
+    all_states = np.zeros((num_steps, 10))
+    task = None
+
+
     for episode_idx in range(num_episodes):
 
         for step_idx in range(num_steps):
@@ -69,6 +74,11 @@ def evaluate(args,
 
             # observe reward and next obs
             [state, belief, task], (rew_raw, rew_normalised), done, infos = utl.env_step(envs, action, args)
+
+            # changes
+            all_states[step_idx] = state[0, 30:40]
+
+
             done_mdp = [info['done_mdp'] for info in infos]
 
             if encoder is not None:
@@ -92,7 +102,9 @@ def evaluate(args,
 
     envs.close()
 
-    return returns_per_episode[:, :num_episodes]
+    # changes
+    # return returns_per_episode[:, :num_episodes]
+    return returns_per_episode[:, :num_episodes], all_states, infos[0]['task']
 
 
 def visualise_behaviour(args,
