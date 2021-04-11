@@ -40,7 +40,8 @@ class FakeRecSim(gym.Env):
         ##############################
         self.user_prefs = None
 
-        self._max_episode_steps = 100
+        self._max_episode_steps = 60
+        self.task_dim = 1
 
         self.reset_task()
         self.reset()
@@ -73,7 +74,7 @@ class FakeRecSim(gym.Env):
         # Response
         engagement = self.generate_engagement(scores[user_idx_choice])
 
-        # Transition
+        # Transition 1
         # if self.utype == 1:
         #     if scores[item_idx_chosen] < self.transition_threshold:
         #         self.user_prefs = self.transition_coeff * self.user_prefs + (
@@ -86,14 +87,26 @@ class FakeRecSim(gym.Env):
         #                 1 - self.transition_coeff) * slate[item_idx_chosen]
         #         self.user_prefs /= self.user_prefs.sum()
 
-        self.time_budget -= 1
 
-        done = self.time_budget <= 0
+        # Transiotion 2
+        # Condition for transition modification for both users
+        if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
+            if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
+                influencing_doc = slate[user_idx_choice]
+            else:                   # user that does not vary - goes towards the argmax doc
+                influencing_doc = slate[np.argmax(scores)]
+            # Users change their transition in the same way (but to different directions)
+            self.user_prefs = self.transition_coeff * self.user_prefs + (1 - self.transition_coeff) * influencing_doc
+            self.user_prefs /= self.user_prefs.sum()
+
+        self.time_budget -= 1
+        0
 
         # Make observation
         slate_idx_one_hot = np.zeros(self.docs.shape[0])
         slate_idx_one_hot[slate_idx] = 1.0
 
+        done = self.time_budget <=
         user_choice_one_hot = np.zeros(self.docs.shape[0])
         user_choice_one_hot[user_idx_choice] = 1.0
 
@@ -124,24 +137,31 @@ class FakeRecSim(gym.Env):
         Resetting the task is handled in the varibad wrapper (see wrappers.py).
         """
         self.time_budget = self._max_episode_steps
-        # self.user_prefs = sample_from_simplex(self.doc_dim)
-        if self.utype == 1:
-            self.user_prefs = np.array([0.15, 0.15, 0.7])
-        elif self.utype:
-            self.user_prefs = np.array([0.7, 0.15, 0.15])
 
+        # USER PREFS INIT
+        # self.user_prefs = sample_from_simplex(self.doc_dim)
+
+        # if self.utype == 1:
+        #     self.user_prefs = np.array([0.15, 0.15, 0.7])
+        # elif self.utype:
+        #     self.user_prefs = np.array([0.7, 0.15, 0.15])
+
+        self.user_prefs = np.array([0.15, 0.15, 0.7])
+
+        # DOCS INIT
         # self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
-        self.single_docs = np.array(
+
+        self.docs = np.array(
             [[0., 0., 1.], [0., 1., 0.], [1., 0., 0.], [0., 0.5, 0.5], [0.5, 0.5, 0.], [0.5, 0.0, 0.5],
              [0.333, 0.333, 0.333], [0.2, 0.4, 0.4], [0.4, 0.2, 0.4], [0.4, 0.4, 0.2]])
-        self.docs = self.single_docs
+
         return np.concatenate((self.docs.reshape(-1), np.zeros(self.docs.shape[0]), np.zeros(self.docs.shape[0])))
 
     def get_task(self):
         """
         Return a task description, such as goal position or target velocity.
         """
-        return self.utype
+        return np.array(self.utype)
 
     def reset_task(self, task=None):
         """
