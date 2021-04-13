@@ -75,8 +75,7 @@ def evaluate(args,
             [state, belief, task], (rew_raw, rew_normalised), done, infos = utl.env_step(envs, action, args)
 
             # changes
-            all_states[step_idx] = state[0, 30:40]
-
+            all_states[step_idx] = state[0, 30:40].cpu().numpy()
 
             done_mdp = [info['done_mdp'] for info in infos]
 
