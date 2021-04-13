@@ -151,8 +151,16 @@ class FakeRecSim(gym.Env):
         # self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
 
         self.docs = np.array(
-            [[0., 0., 1.], [0., 1., 0.], [1., 0., 0.], [0., 0.5, 0.5], [0.5, 0.5, 0.], [0.5, 0.0, 0.5],
-             [0.333, 0.333, 0.333], [0.2, 0.4, 0.4], [0.4, 0.2, 0.4], [0.4, 0.4, 0.2]])
+            [[0., 0., 1.],           #0
+             [0., 1., 0.],           #1
+             [1., 0., 0.],           #2
+             [0., 0.5, 0.5],         #3
+             [0.5, 0.5, 0.],         #4
+             [0.5, 0.0, 0.5],        #5
+             [0.333, 0.333, 0.333],  #6
+             [0.2, 0.4, 0.4],        #7
+             [0.4, 0.2, 0.4],        #8
+             [0.4, 0.4, 0.2]])       #9
 
         return np.concatenate((self.docs.reshape(-1), np.zeros(self.docs.shape[0]), np.zeros(self.docs.shape[0])))
 
@@ -167,4 +175,5 @@ class FakeRecSim(gym.Env):
         Reset the task, either at random (if task=None) or the given task.
         Should *not* reset the environment.
         """
-        self.utype = task if task is not None else np.random.randint(1, 3)
+        # self.utype = task if task is not None else np.random.randint(1, 3)
+        self.utype = 2
