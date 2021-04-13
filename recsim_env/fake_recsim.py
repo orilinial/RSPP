@@ -61,6 +61,7 @@ class FakeRecSim(gym.Env):
         where info has to include a field 'task'.
         """
         if self.env_type == 'Categorical':
+            raise NotImplementedError
             slate = self.docs[action.nonzero()]
         elif self.env_type == 'Box':
             probs = np.exp(action) / np.exp(action).sum()
@@ -87,8 +88,7 @@ class FakeRecSim(gym.Env):
         #                 1 - self.transition_coeff) * slate[item_idx_chosen]
         #         self.user_prefs /= self.user_prefs.sum()
 
-
-        # Transiotion 2
+        # Transition 2
         # Condition for transition modification for both users
         if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
             if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
@@ -100,13 +100,12 @@ class FakeRecSim(gym.Env):
             self.user_prefs /= self.user_prefs.sum()
 
         self.time_budget -= 1
-        0
 
         # Make observation
         slate_idx_one_hot = np.zeros(self.docs.shape[0])
         slate_idx_one_hot[slate_idx] = 1.0
 
-        done = self.time_budget <=
+        done = self.time_budget <= 0
         user_choice_one_hot = np.zeros(self.docs.shape[0])
         user_choice_one_hot[user_idx_choice] = 1.0
 
