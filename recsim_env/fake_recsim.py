@@ -175,5 +175,5 @@ class FakeRecSim(gym.Env):
         Reset the task, either at random (if task=None) or the given task.
         Should *not* reset the environment.
         """
-        # self.utype = task if task is not None else np.random.randint(1, 3)
-        self.utype = 2
+        self.utype = task if task is not None else np.random.randint(1, 3)
+        # self.utype = 2
