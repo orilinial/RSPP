@@ -32,8 +32,8 @@ class FakeRecSim(gym.Env):
 
         ## Engagement parameters
         ##############################
-        self.min_eng = 1.0
-        self.max_eng = 5.0
+        self.min_eng = 0.0
+        self.max_eng = 1.0
         self.eng_scale = 0.1
 
         ## State variables
@@ -90,14 +90,16 @@ class FakeRecSim(gym.Env):
 
         # Transition 2
         # Condition for transition modification for both users
-        if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
-            if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
-                influencing_doc = slate[user_idx_choice]
-            else:                   # user that does not vary - goes towards the argmax doc
-                influencing_doc = slate[np.argmax(scores)]
-            # Users change their transition in the same way (but to different directions)
-            self.user_prefs = self.transition_coeff * self.user_prefs + (1 - self.transition_coeff) * influencing_doc
-            self.user_prefs /= self.user_prefs.sum()
+        # if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
+        #
+        #     if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
+        #         influencing_doc = slate[user_idx_choice]
+        #     else:                   # user that does not vary - goes towards the argmax doc
+        #         influencing_doc = slate[np.argmax(scores)]
+        #
+        #     # Users change their transition in the same way (but to different directions)
+        #     self.user_prefs = self.transition_coeff * self.user_prefs + (1 - self.transition_coeff) * influencing_doc
+        #     self.user_prefs /= self.user_prefs.sum()
 
         self.time_budget -= 1
 
@@ -140,19 +142,27 @@ class FakeRecSim(gym.Env):
         # USER PREFS INIT
         # self.user_prefs = sample_from_simplex(self.doc_dim)
 
-        # if self.utype == 1:
-        #     self.user_prefs = np.array([0.15, 0.15, 0.7])
-        # elif self.utype:
-        #     self.user_prefs = np.array([0.7, 0.15, 0.15])
+        if self.utype == 1:
+            self.user_prefs = np.array([0.15, 0.15, 0.7])
+        elif self.utype:
+            self.user_prefs = np.array([0.7, 0.15, 0.15])
 
-        self.user_prefs = np.array([0.15, 0.15, 0.7])
+        # self.user_prefs = np.array([0.15, 0.15, 0.7])
 
         # DOCS INIT
         # self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
 
         self.docs = np.array(
-            [[0., 0., 1.], [0., 1., 0.], [1., 0., 0.], [0., 0.5, 0.5], [0.5, 0.5, 0.], [0.5, 0.0, 0.5],
-             [0.333, 0.333, 0.333], [0.2, 0.4, 0.4], [0.4, 0.2, 0.4], [0.4, 0.4, 0.2]])
+            [[0., 0., 1.],
+             [1., 0., 0.],
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001,
+             np.ones(3) * 0.001])
 
         return np.concatenate((self.docs.reshape(-1), np.zeros(self.docs.shape[0]), np.zeros(self.docs.shape[0])))
 
@@ -168,3 +178,4 @@ class FakeRecSim(gym.Env):
         Should *not* reset the environment.
         """
         self.utype = task if task is not None else np.random.randint(1, 3)
+        # self.utype = 1

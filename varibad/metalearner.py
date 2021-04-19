@@ -397,7 +397,7 @@ class MetaLearner:
 
                 # Changes
                 for i in range(10):
-                    self.logger.add('slates_task_{}/episode_{}/doc_{}'.format(task, k+1, i), states[k, i], self.frames)
+                    self.logger.add('slates_task_{}/doc_{}'.format(task, i), states[:, i].sum(), self.iter_idx)
 
             print(f"Updates {self.iter_idx}, "
                   f"Frames {self.frames}, "
