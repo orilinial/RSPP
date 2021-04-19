@@ -40,7 +40,7 @@ class FakeRecSim(gym.Env):
         ##############################
         self.user_prefs = None
 
-        self._max_episode_steps = 60
+        self._max_episode_steps = 100
         self.task_dim = 1
 
         self.reset_task()
@@ -150,6 +150,17 @@ class FakeRecSim(gym.Env):
         # DOCS INIT
         # self.docs = np.stack([sample_from_simplex(self.doc_dim) for _ in range(self.num_docs)], axis=0)
 
+        # self.docs = np.array(
+        #     [[0., 0., 1.],           #0
+        #      [0., 1., 0.],           #1
+        #      [1., 0., 0.],           #2
+        #      [0.333, 0.333, 0.333],         #3
+        #      [0.333, 0.333, 0.333],         #4
+        #      [0.333, 0.333, 0.333],        #5
+        #      [0.333, 0.333, 0.333],  #6
+        #      [0.333, 0.333, 0.333],        #7
+        #      [0.333, 0.333, 0.333],        #8
+        #      [0.333, 0.333, 0.333]])       #9
         self.docs = np.array(
             [[0., 0., 1.],           #0
              [0., 1., 0.],           #1
