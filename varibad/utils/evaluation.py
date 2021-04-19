@@ -56,7 +56,6 @@ def evaluate(args,
     all_states = np.zeros((num_steps, 10))
     task = None
 
-
     for episode_idx in range(num_episodes):
 
         for step_idx in range(num_steps):

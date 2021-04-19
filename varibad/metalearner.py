@@ -4,6 +4,7 @@ import time
 import gym
 import numpy as np
 import torch
+import matplotlib.pyplot as plt
 
 from algorithms.a2c import A2C
 from algorithms.online_storage import OnlineStorage
@@ -396,8 +397,13 @@ class MetaLearner:
                 self.logger.add('return_std_per_frame/episode_{}'.format(k + 1), returns_std[k], self.frames)
 
                 # Changes
-                for i in range(10):
-                    self.logger.add('slates_task_{}/doc_{}'.format(task, i), states[:, i].sum(), self.iter_idx)
+                # for i in range(10):
+                #     self.logger.add('slates_task_{}/doc_{}'.format(task, i), states[:, i].sum(), self.iter_idx)
+
+                x, y = np.nonzero(states)
+                fig = plt.figure()
+                plt.scatter(x, y)
+                self.logger.writer.add_figure(f'slate_task{task}', fig, global_step=self.iter_idx)
 
             print(f"Updates {self.iter_idx}, "
                   f"Frames {self.frames}, "
