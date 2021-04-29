@@ -27,7 +27,7 @@ class FakeRecSim(gym.Env):
         ## Transition model parameters
         ##############################
         self.transition_threshold = 0.5
-        self.transition_coeff = 0.9
+        self.transition_coeff = 0.95
         self.utype = None
 
         ## Engagement parameters
@@ -39,6 +39,7 @@ class FakeRecSim(gym.Env):
         ## State variables
         ##############################
         self.user_prefs = None
+        self.pref_collection = None
 
         self._max_episode_steps = 100
         self.task_dim = 1
@@ -90,17 +91,18 @@ class FakeRecSim(gym.Env):
 
         # Transition 2
         # Condition for transition modification for both users
-        # if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
-        #
-        #     if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
-        #         influencing_doc = slate[user_idx_choice]
-        #     else:                   # user that does not vary - goes towards the argmax doc
-        #         influencing_doc = slate[np.argmax(scores)]
-        #
-        #     # Users change their transition in the same way (but to different directions)
-        #     self.user_prefs = self.transition_coeff * self.user_prefs + (1 - self.transition_coeff) * influencing_doc
-        #     self.user_prefs /= self.user_prefs.sum()
+        if user_idx_choice != np.argmax(scores):        # user did NOT choose the best doc
 
+            if self.utype == 1:     # user that likes to vary - goes towards the chosen doc
+                influencing_doc = slate[user_idx_choice]
+            else:                   # user that does not vary - goes towards the argmax doc
+                influencing_doc = slate[np.argmax(scores)]
+
+            # Users change their transition in the same way (but to different directions)
+            self.user_prefs = self.transition_coeff * self.user_prefs + (1 - self.transition_coeff) * influencing_doc
+            self.user_prefs /= self.user_prefs.sum()
+
+        self.pref_collection[self._max_episode_steps - self.time_budget] = self.user_prefs
         self.time_budget -= 1
 
         # Make observation
@@ -113,7 +115,7 @@ class FakeRecSim(gym.Env):
 
         obs = np.concatenate((self.docs.reshape(-1), slate_idx_one_hot, user_choice_one_hot))
         reward = engagement
-        info = {'task': self.utype}
+        info = {'task': self.utype, 'prefs': self.pref_collection}
 
         if self.oracle:
             scores = np.array([(doc * self.user_prefs).sum() for doc in self.docs])
@@ -144,9 +146,11 @@ class FakeRecSim(gym.Env):
 
         if self.utype == 1:
             self.user_prefs = np.array([0.15, 0.15, 0.7])
-        elif self.utype:
+        else:
             self.user_prefs = np.array([0.7, 0.15, 0.15])
 
+        self.pref_collection = np.zeros((self._max_episode_steps, 3))
+        self.pref_collection[0] = self.user_prefs
         # self.user_prefs = np.array([0.15, 0.15, 0.7])
 
         # DOCS INIT

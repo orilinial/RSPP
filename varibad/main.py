@@ -2,6 +2,9 @@
 Main scripts to start experiments.
 Takes a flag --env-type (see below for choices) and loads the parameters from the respective config file.
 """
+import sys
+sys.path.append('..')
+
 import argparse
 import warnings
 

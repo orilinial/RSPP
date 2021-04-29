@@ -2,7 +2,6 @@ import argparse
 from utils.helpers import boolean_argument
 import recsim_env
 
-
 def get_args(rest_args):
     parser = argparse.ArgumentParser()
 

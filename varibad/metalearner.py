@@ -380,12 +380,12 @@ class MetaLearner:
             #                                                       encoder=self.vae.encoder,
             #                                                       iter_idx=self.iter_idx
             #                                                       )
-            returns_per_episode, states, task = utl_eval.evaluate(args=self.args,
-                                                                  policy=self.policy,
-                                                                  ret_rms=ret_rms,
-                                                                  encoder=self.vae.encoder,
-                                                                  iter_idx=self.iter_idx
-                                                                  )
+            returns_per_episode, states, task, prefs = utl_eval.evaluate(args=self.args,
+                                                                         policy=self.policy,
+                                                                         ret_rms=ret_rms,
+                                                                         encoder=self.vae.encoder,
+                                                                         iter_idx=self.iter_idx
+                                                                        )
 
             # log the return avg/std across tasks (=processes)
             returns_avg = returns_per_episode.mean(dim=0)
@@ -404,6 +404,10 @@ class MetaLearner:
                 fig = plt.figure()
                 plt.scatter(x, y)
                 self.logger.writer.add_figure(f'slate_task{task}', fig, global_step=self.iter_idx)
+
+                fig = plt.figure()
+                plt.plot(list(range(prefs.shape[0])), prefs[:, 0], list(range(prefs.shape[0])), prefs[:, 1], list(range(prefs.shape[0])), prefs[:, 2])
+                self.logger.writer.add_figure(f'user_prefs_task{task}', fig, global_step=self.iter_idx)
 
             print(f"Updates {self.iter_idx}, "
                   f"Frames {self.frames}, "

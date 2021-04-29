@@ -54,6 +54,7 @@ def evaluate(args,
 
     # changes
     all_states = np.zeros((num_steps, 10))
+    all_user_prefs = np.zeros((num_steps, 3))
     task = None
 
     for episode_idx in range(num_episodes):
@@ -102,7 +103,7 @@ def evaluate(args,
 
     # changes
     # return returns_per_episode[:, :num_episodes]
-    return returns_per_episode[:, :num_episodes], all_states, infos[0]['task']
+    return returns_per_episode[:, :num_episodes], all_states, infos[0]['task'], infos[0]['prefs']
 
 
 def visualise_behaviour(args,
